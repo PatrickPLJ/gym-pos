@@ -159,3 +159,160 @@ test('Asia Jakarta boundary and open shift across midnight keep drawer and daily
   const cashBefore = store.shiftSummary().cashSales; store.checkout(productOrder());
   assert.equal(store.metrics().total, 16000); assert.equal(store.shiftSummary().cashSales, cashBefore + 16000); assert.equal(store.shiftSummary().shift.id, shiftId);
 });
+
+const memberById = (store, id) => store.state.members.find(m => m.id === id);
+const editMember = (store, id, patch) => store.saveMember({ ...memberById(store, id), ...patch });
+const manualMember = (store, patch = {}) => store.saveMember({ name: 'Laras Demo', phone: '081200009991', packageId: 'pkg-month', startDate: '2026-09-01', endDate: '2026-09-30', ...patch });
+const pngPhoto = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
+const stripNewFields = state => {
+  state.members.forEach(m => ['qrToken', 'dateOfBirth', 'gender', 'address', 'photoDataUrl', 'accessRevision'].forEach(key => { delete m[key]; }));
+  state.transactions.forEach(t => { delete t._accessRevision; });
+  return state;
+};
+
+test('legacy stored data migrates once without changing history, revenue, benefits, or shifts', () => {
+  const { store, storage } = fixture();
+  const oldState = stripNewFields(JSON.parse(store.exportBackup()));
+  storage.setItem('forma.gym.pos.v1', JSON.stringify(oldState));
+  const migrated = createStore({ storage, now: () => new Date('2026-09-16T05:00:00.000Z') });
+  assert.equal(migrated.storageError, null);
+  assert.deepEqual(stripNewFields(JSON.parse(migrated.exportBackup())), oldState);
+  assert.equal(new Set(migrated.state.members.map(m => m.qrToken)).size, oldState.members.length);
+  migrated.state.members.forEach(m => assert.match(m.qrToken, /^[a-f0-9]{32}$/));
+  const persisted = storage.getItem('forma.gym.pos.v1');
+  const reloaded = createStore({ storage, now: () => new Date('2026-09-16T05:00:00.000Z') });
+  assert.deepEqual(reloaded.state, migrated.state);
+  assert.equal(storage.getItem('forma.gym.pos.v1'), persisted);
+});
+
+test('manual initial access and profile store no sale, preserve optional fields, and derive customer type', () => {
+  const { store } = fixture(); const revenue = store.metrics(); const transactions = store.state.transactions.length;
+  const m = manualMember(store, { dateOfBirth: '1994-06-12', gender: 'female', address: 'Jalan Contoh Fiktif 8', notes: 'Profil demo', photoDataUrl: pngPhoto, customerType: 'monthly' });
+  assert.equal(store.status(m), 'active'); assert.equal(store.getCustomerType(m), 'monthly');
+  assert.deepEqual(store.metrics(), revenue); assert.equal(store.state.transactions.length, transactions);
+  const changed = store.saveMember({ id: m.id, name: 'Laras Demo Baru', phone: m.phone });
+  ['dateOfBirth', 'gender', 'address', 'notes', 'photoDataUrl', 'qrToken', 'startDate', 'endDate'].forEach(k => assert.equal(changed[k], m[k]));
+  assert.equal(store.state.audit.find(a => a.action === 'member.access.updated').description.includes('Pendaftaran / masa aktif awal'), true);
+  const other = fresh(store); assert.equal(store.getCustomerType(other), 'nonmember');
+  const tx = store.checkout(packageOrder(other.id, 'pkg-day')); assert.equal(store.getCustomerType(memberById(store, other.id)), 'daily');
+  store.voidTransaction(tx.id, 'Salah paket demo'); assert.equal(store.getCustomerType(memberById(store, other.id)), 'nonmember');
+});
+
+test('invalid dates, missing access fields, future birthday, and customer type errors are atomic', () => {
+  const { store, storage } = fixture(); const before = store.exportBackup(); const disk = storage.getItem('forma.gym.pos.v1');
+  const invalid = [
+    { startDate: '2026-10-01', endDate: '2026-09-01' },
+    { startDate: '2026-02-30' },
+    { startDate: '' },
+    { packageId: null },
+    { endDate: null },
+    { packageId: 'pkg-pt4' },
+    { dateOfBirth: '2026-09-17' },
+    { dateOfBirth: '1999-02-29' },
+    { customerType: 'daily' },
+    { gender: 'unknown' },
+    { address: 123 }
+  ];
+  for (const patch of invalid) {
+    assert.throws(() => manualMember(store, patch));
+    assert.equal(store.exportBackup(), before); assert.equal(storage.getItem('forma.gym.pos.v1'), disk);
+  }
+});
+
+test('manual date correction requires audit reason, retains PT, and blocks unsafe rollback even after restoring dates', () => {
+  const { store } = fixture(); const m = fresh(store); const tx = store.checkout(packageOrder(m.id));
+  store.checkout(packageOrder(m.id, 'pkg-pt4')); const initial = memberById(store, m.id); const before = store.exportBackup();
+  assert.throws(() => editMember(store, m.id, { endDate: '2026-10-20' }), /Alasan perubahan/);
+  assert.equal(store.exportBackup(), before);
+  editMember(store, m.id, { endDate: '2026-10-20', membershipReason: 'Koreksi tanggal demo' });
+  editMember(store, m.id, { endDate: initial.endDate, membershipReason: 'Kembalikan tanggal demo' });
+  assert.equal(memberById(store, m.id).ptCredits, 4);
+  assert.equal(memberById(store, m.id).qrToken, initial.qrToken);
+  assert.throws(() => store.voidTransaction(tx.id, 'Tanggal sudah kembali'), /diubah manual/);
+  const logs = store.state.audit.filter(a => a.action === 'member.access.updated');
+  assert.equal(logs.length, 2); assert.match(logs[0].description, /2026-10-15.*2026-10-20.*Koreksi tanggal demo/);
+});
+
+test('frozen member can edit profile but cannot manually change package or dates', () => {
+  const { store } = fixture(); const m = manualMember(store); store.setFreeze(m.id, 5);
+  const frozen = memberById(store, m.id);
+  editMember(store, m.id, { address: 'Alamat contoh diperbarui', photoDataUrl: pngPhoto });
+  const before = store.exportBackup();
+  assert.throws(() => editMember(store, m.id, { endDate: '2026-10-15', membershipReason: 'Koreksi' }), /Akhiri freeze/);
+  assert.throws(() => editMember(store, m.id, { packageId: null, startDate: null, endDate: null, membershipReason: 'Hapus akses' }), /Akhiri freeze/);
+  assert.equal(store.exportBackup(), before);
+  assert.equal(memberById(store, m.id).endDate, frozen.endDate);
+  assert.equal(memberById(store, m.id).qrToken, frozen.qrToken);
+});
+
+test('QR resolves private stable token, raw token and exact ID; rejects unknown, malformed and URL codes', () => {
+  const { store } = fixture(); const m = manualMember(store); const payload = store.memberQrPayload(m.id);
+  assert.match(payload, /^FORMA-MEMBER:1:[a-f0-9]{32}$/);
+  assert.equal(payload.includes(m.name), false); assert.equal(payload.includes(m.phone), false);
+  [payload, m.qrToken, m.id].forEach(code => assert.equal(store.resolveMemberCode(code).id, m.id));
+  const before = store.exportBackup();
+  ['', null, 'a'.repeat(129), 'FORMA-MEMBER:1:bad', 'FORMA-MEMBER:2:' + m.qrToken, 'f'.repeat(32), 'mem-missing', 'https://example.test/' + payload, 'javascript:alert(1)', 'data:text/plain,' + payload, 'FORMA-MEMBER:1:\n' + m.qrToken].forEach(code => assert.throws(() => store.checkInCode(code)));
+  assert.equal(store.exportBackup(), before);
+});
+
+test('QR check-in allows final day inclusive and rejects expired, future-start, frozen, and duplicates', () => {
+  const { store, travel } = fixture(); const m = manualMember(store, { endDate: '2026-09-16' }); const payload = store.memberQrPayload(m.id);
+  store.checkInCode(payload); assert.throws(() => store.checkInCode(payload), /sudah check-in/);
+  travel('2026-09-17T05:00:00.000Z'); assert.throws(() => store.checkInCode(payload), /sudah habis/);
+  const future = manualMember(store, { name: 'Banyu Demo', phone: '081200009992', startDate: '2026-09-18', endDate: '2026-10-17' });
+  assert.throws(() => store.checkInCode(store.memberQrPayload(future.id)), /belum aktif/);
+  const frozen = manualMember(store, { name: 'Kirana Demo', phone: '081200009993' }); store.setFreeze(frozen.id, 4);
+  assert.throws(() => store.checkInCode(store.memberQrPayload(frozen.id)), /freeze/);
+});
+
+test('same QR survives renewal, profile edits, freeze and unfreeze; ordinary save cannot override token', () => {
+  const { store } = fixture(); const m = manualMember(store); const payload = store.memberQrPayload(m.id);
+  store.checkout(packageOrder(m.id));
+  editMember(store, m.id, { name: 'Laras Edit Demo', qrToken: '0'.repeat(32) });
+  store.setFreeze(m.id, 7); store.unfreeze(m.id);
+  assert.equal(store.memberQrPayload(m.id), payload);
+  assert.equal(store.resolveMemberCode(payload).name, 'Laras Edit Demo');
+});
+
+test('backup roundtrip preserves profile photo and QR; legacy backup gets stable new QR without losing history', () => {
+  const { store, storage } = fixture(); const m = manualMember(store, { dateOfBirth: '1995-05-12', gender: 'unspecified', address: 'Alamat contoh', photoDataUrl: pngPhoto });
+  const payload = store.memberQrPayload(m.id); const before = JSON.parse(store.exportBackup());
+  store.importBackup(JSON.stringify(before)); assert.equal(store.memberQrPayload(m.id), payload);
+  assert.deepEqual(memberById(store, m.id), m);
+  const legacy = stripNewFields(before); store.importBackup(JSON.stringify(legacy));
+  const migrated = JSON.parse(store.exportBackup()); const restored = stripNewFields(JSON.parse(store.exportBackup())); restored.audit.pop();
+  assert.deepEqual(restored, legacy);
+  const reloaded = createStore({ storage, now: () => new Date('2026-09-16T05:00:00.000Z') });
+  assert.deepEqual(reloaded.state, migrated);
+});
+
+test('invalid explicit QR and profile fields reject backup atomically instead of normalizing them away', () => {
+  const { store, storage } = fixture(); const before = store.exportBackup(); const disk = storage.getItem('forma.gym.pos.v1');
+  const changes = [
+    s => { s.members[0].qrToken = s.members[1].qrToken; },
+    s => { s.members[0].qrToken = null; },
+    s => { s.members[0].qrToken = 'A'.repeat(32); },
+    s => { s.members[0].photoDataUrl = 'data:image/svg+xml;base64,PHN2Zy8+'; },
+    s => { s.members[0].photoDataUrl = 'data:image/png;base64,AAAA'; },
+    s => { s.members[0].photoDataUrl = 'data:image/png;base64,' + Buffer.concat([Buffer.from('\x89PNG\r\n\x1a\n', 'binary'), Buffer.alloc(180 * 1024)]).toString('base64'); },
+    s => { s.members[0].dateOfBirth = '2026-09-17'; },
+    s => { s.members[0].gender = null; },
+    s => { s.members[0].accessRevision = -1; },
+    s => { s.members[0].customerType = 'daily'; }
+  ];
+  for (const change of changes) {
+    const invalid = JSON.parse(before); change(invalid); assert.throws(() => store.importBackup(JSON.stringify(invalid)));
+    assert.equal(store.exportBackup(), before); assert.equal(storage.getItem('forma.gym.pos.v1'), disk);
+  }
+});
+
+test('legacy payment snapshots can still void safely after migration and identity update', () => {
+  const { store } = fixture(); const m = fresh(store); const tx = store.checkout(packageOrder(m.id));
+  store.importBackup(JSON.stringify(stripNewFields(JSON.parse(store.exportBackup()))));
+  editMember(store, m.id, { name: 'Member Demo Diperbarui', address: 'Jalan contoh', photoDataUrl: pngPhoto });
+  const token = memberById(store, m.id).qrToken;
+  store.voidTransaction(tx.id, 'Salah pembayaran demo');
+  const after = memberById(store, m.id);
+  assert.equal(after.endDate, null); assert.equal(after.name, 'Member Demo Diperbarui');
+  assert.equal(after.photoDataUrl, pngPhoto); assert.equal(after.qrToken, token);
+});

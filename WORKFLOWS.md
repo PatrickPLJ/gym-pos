@@ -29,13 +29,19 @@ Bucket H−7/H−3/H−1 pada foto tidak ditiru sebagai angka statis. Versi revi
 
 ## Alur operasional yang diterapkan
 
-**Member baru:** daftar nama dan telepon → pilih paket di kasir → catat pembayaran → masa aktif atau kredit PT bertambah → buka profil/struk. Nomor telepon ganda ditolak. Pelanggan umum dapat membeli produk tanpa menjadi member.
+**Member baru:** daftar nama dan WhatsApp → pilih Non-member, Harian, atau Bulanan → isi profil opsional (tanggal lahir, jenis kelamin, alamat, catatan, foto). Bila akses sudah dibayar/dicatat sebelumnya, pilih paket dan isi tanggal mulai/expired langsung. Form ini tidak membuat pendapatan atau pembayaran. Untuk pembayaran baru: pilih paket di kasir → catat pembayaran → masa aktif atau kredit PT bertambah → buka profil/struk. Nomor telepon ganda ditolak. Pelanggan umum dapat membeli produk tanpa menjadi member.
+
+**Tanggal awal dan koreksi akses:** pilihan paket mengisi durasi default; contoh 30 hari dimulai hari ini dan berakhir pada hari ke-30 secara inklusif. Tanggal expired bisa disesuaikan dengan catatan sebelumnya. Mengubah paket/tanggal member lama membutuhkan alasan audit. Member frozen harus diaktifkan kembali sebelum mengubah akses, tetapi profil/foto tetap boleh diedit. Non-member tidak mendapat akses gym.
 
 **Perpanjangan:** paket 30/90/365 hari menggunakan jumlah hari, bukan bulan kalender. Jika masih aktif, durasi ditambahkan setelah tanggal akhir lama. Jika sudah habis, paket mulai hari ini. Tanggal berakhir inklusif: hari terakhir masih boleh check-in. Contoh paket 30 hari mulai 16 September berakhir 15 Oktober.
 
 **Freeze:** member aktif dibekukan sejumlah hari; akses gym berhenti selama freeze. Masa berlaku diperpanjang sekali. Jika dibuka lebih awal, perpanjangan yang belum terpakai dikurangi. Daily pass tidak dapat dibekukan.
 
-**Kunjungan:** cari member → cek status → check-in. Dicatat satu kunjungan per hari untuk setiap member. Angka kunjungan bukan jumlah orang yang saat ini berada di gym; tidak ada check-out/gate.
+**Kunjungan:** scan QR kartu, pilih gambar QR, atau masukkan kode/ID member → periksa data member terkini → catat check-in jika akses valid. Kamera hanya aktif setelah tombol dipilih; scanner USB dapat mengisi kolom lalu Enter. Pencarian nama/telepon tetap tersedia. Dicatat satu kunjungan per hari; member expired, belum mulai, non-member, atau frozen ditolak. Angka kunjungan bukan jumlah orang yang saat ini berada di gym; tidak ada check-out/gate.
+
+**Kartu member:** profil → Kartu member → Unduh kartu PNG atau Cetak / Simpan PDF lewat dialog cetak. Kartu menampilkan identitas gym/member, foto opsional, tanggal mulai/expired dan QR. Kode berisi token identitas tanpa detail pribadi; token tetap sama ketika diperpanjang. Resepsionis menggunakan tanggal aktif dari data aplikasi, bukan tulisan tanggal di kartu. Kartu lama perlu diunduh ulang untuk menampilkan tanggal cetak terbaru.
+
+**Foto:** pengguna memilih/mengambil JPG, PNG, atau WebP → pratinjau → simpan profil. File dikompres menjadi JPEG maksimal sisi 480 piksel; metadata gambar asli tidak dipertahankan. HEIC diminta dikonversi terlebih dahulu. Foto asli dan gambar QR tidak dikirim ke server.
 
 **Personal training:** beli kredit → pilih member, trainer aktif, tanggal/jam → booking mencadangkan satu kredit → selesai mengurangi satu kredit tepat sekali. Pembatalan booking melepas reservasi. Jadwal bentrok dalam jendela 60 menit ditolak untuk member maupun trainer. Sesi tidak bisa selesai sebelum waktunya mulai.
 
@@ -45,7 +51,7 @@ Bucket H−7/H−3/H−1 pada foto tidak ditiru sebagai angka statis. Versi revi
 
 **Pembatalan:** sertakan alasan; hanya transaksi shift yang masih terbuka. Stok dan benefit dipulihkan penuh hanya jika aman. Membership yang sudah dipakai check-in atau saldo yang sudah berubah menolak pembatalan otomatis. Catatan transaksi tetap ada dengan status dibatalkan. Ini tidak mengirim uang kembali ke rekening; refund parsial dan pembatalan setelah tutup shift belum dibuat.
 
-## Checklist review — 10 skenario
+## Checklist review
 
 1. **Dashboard:** bandingkan Hari ini dan Bulan ini, lalu cocokkan total dan metode bayar dengan Laporan. Semua angka harus berasal dari transaksi.
 2. **Member baru:** tambahkan profil fiktif, coba telepon yang sama dua kali, beli paket 30 hari. Periksa tanggal akhir serta struk.
@@ -58,13 +64,19 @@ Bucket H−7/H−3/H−1 pada foto tidak ditiru sebagai angka statis. Versi revi
 9. **Void dan shift:** batalkan transaksi produk baru dengan alasan, periksa pemulihan stok/total. Tutup shift sesuai kas fisik; selisih wajib catatan. Transaksi baru perlu buka shift lagi.
 10. **Cadangan dan laporan:** ekspor CSV dan backup JSON, refresh halaman untuk cek persistensi, lalu impor backup valid. Backup rusak harus ditolak tanpa menimpa data. Reset demo hanya setelah konfirmasi.
 
+11. **Tanggal di form:** tambah member Harian (hari mulai sama dengan expired) dan Bulanan (default mengikuti durasi paket). Sesuaikan expired manual; nama/tanggal/foto harus tetap ada bila validasi gagal. Member dengan masa aktif awal tidak menambah pendapatan.
+12. **Koreksi member lama:** ubah tanggal expired, simpan tanpa alasan (ditolak), lalu isi alasan minimal lima karakter (berhasil). Coba edit profil/foto member frozen tanpa mengubah akses; boleh tersimpan.
+13. **Kartu dan QR:** unduh kartu PNG, pilih gambar itu di Check-in, verifikasi member yang dikenali dan kunjungan baru. Scan ulang harus ditolak. Coba kode tidak dikenal, member expired, dan frozen; pastikan alasan jelas tanpa menambah kunjungan.
+14. **Foto dan cetak:** unggah foto fiktif, ganti/hapus, lalu refresh. Coba foto format tidak didukung. Cetak kartu memakai layout kartu, sementara cetak struk tetap memakai layout 80 mm. Simpan PDF dilakukan melalui dialog cetak browser.
+15. **Perangkat resepsionis:** coba kamera perangkat nyata setelah memberi izin, tutup dialog/ESC/pindah halaman/tab dan pastikan kamera berhenti. Uji izin ditolak, gambar tanpa QR, serta scanner USB dengan Enter. Perangkat fisik belum dianggap lolos hanya berdasarkan tes modul.
+
 ## Yang perlu ditentukan sebelum produksi
 
 - Nama/cabang, daftar harga asli, paket kalender versus hari, aturan freeze, diskon, refund, pajak, dan komisi trainer.
 - Database bersama, login serta izin owner/kasir/trainer, audit server, backup otomatis, pemulihan, dan penanganan dua kasir bersamaan.
 - Migrasi data asli beserta saldo masa aktif, PT, dan stok; validasi terpisah sebelum mengganti sistem yang sedang dipakai.
 - Payment gateway atau QRIS merchant resmi, verifikasi pembayaran, rekonsiliasi settlement, serta prosedur pengembalian dana.
-- Printer termal, barcode/kartu member, gate, dan pesan WhatsApp bila memang diperlukan. Pengingat saat ini hanya teks untuk disalin.
+- Validasi kamera/scanner USB dan kualitas hasil cetak pada perangkat gym. Kartu QR sudah tersedia; integrasi printer termal/gate dan pesan WhatsApp tetap perlu diputuskan. Pengingat saat ini hanya teks untuk disalin.
 - Stock opname/koreksi stok, retur, pembayaran pemasok bertempo, laporan laba, pajak, payroll, kelas grup, dan portal member belum tersedia.
 
-Saat review gunakan satu tab aktif pada satu browser. Data belum tersinkron ke perangkat lain. Arus kas bersih yang tersedia tidak menghitung laba akuntansi, penyusutan, atau pendapatan membership yang diakui bertahap.
+Saat review gunakan satu tab aktif pada satu browser. Data belum tersinkron ke perangkat lain. Kartu harus dipindai oleh aplikasi resepsionis pada browser yang sudah menyimpan record member; QR dari member baru tidak otomatis menyalin data ke browser lain. Arus kas bersih yang tersedia tidak menghitung laba akuntansi, penyusutan, atau pendapatan membership yang diakui bertahap.

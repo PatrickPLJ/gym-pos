@@ -32,6 +32,43 @@
   const find = (state, type, id) => state[type].find(item => item.id === id) || fail('Data ' + type + ' tidak ditemukan.');
   const activeShift = state => state.shifts.find(s => !s.closedAt);
   const requireShift = state => activeShift(state) || fail('Buka shift kasir dahulu sebelum mencatat transaksi.');
+  const has = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+  const QR_PREFIX = 'FORMA-MEMBER:1:';
+  const MAX_PHOTO_BYTES = 180 * 1024;
+  const newQrToken = () => {
+    const crypto = root.crypto || (typeof require === 'function' ? require('node:crypto').webcrypto : null);
+    if (!crypto || !crypto.getRandomValues) fail('Browser belum mendukung pembuatan kode member yang aman.');
+    return Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+  };
+  const customerType = (state, member) => member.packageId ? (find(state, 'packages', member.packageId).kind === 'daypass' ? 'daily' : 'monthly') : 'nonmember';
+  const profileDefaults = () => ({ dateOfBirth: null, gender: '', address: '', photoDataUrl: null, accessRevision: 0 });
+  const validatePhoto = value => {
+    if (value === null) return;
+    if (typeof value !== 'string' || value.length > Math.ceil(MAX_PHOTO_BYTES / 3) * 4 + 40) fail('Foto maksimal 180 KB, gunakan JPEG, PNG, atau WebP.');
+    const match = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
+    if (!match || match[2].length % 4 !== 0) fail('Format foto tidak valid. Gunakan JPEG, PNG, atau WebP.');
+    let binary;
+    try { binary = root.atob ? root.atob(match[2]) : Buffer.from(match[2], 'base64').toString('binary'); }
+    catch (_) { fail('Data foto tidak valid.'); }
+    if (binary.length > MAX_PHOTO_BYTES) fail('Foto maksimal 180 KB.');
+    const signature = match[1] === 'jpeg' ? binary.startsWith('\xff\xd8\xff') : match[1] === 'png' ? binary.startsWith('\x89PNG\r\n\x1a\n') : binary.startsWith('RIFF') && binary.slice(8, 12) === 'WEBP';
+    if (!signature) fail('Isi foto tidak sesuai format JPEG, PNG, atau WebP.');
+  };
+  // Only absent fields receive defaults; explicitly invalid backup data must still fail validation.
+  function normalizeMembers(state) {
+    if (!state || !Array.isArray(state.members)) return false;
+    let changed = false;
+    const tokens = new Set(state.members.map(m => m && m.qrToken).filter(Boolean));
+    state.members.forEach(member => {
+      if (!member || typeof member !== 'object' || Array.isArray(member)) return;
+      Object.entries(profileDefaults()).forEach(([key, value]) => { if (!has(member, key)) { member[key] = value; changed = true; } });
+      if (!has(member, 'qrToken')) {
+        let token; do { token = newQrToken(); } while (tokens.has(token));
+        member.qrToken = token; tokens.add(token); changed = true;
+      }
+    });
+    return changed;
+  }
 
   function seed(today, now) {
     const state = { version: 1, settings: { gymName: 'FORMA', branch: 'Surabaya', address: 'Jl. Graha Kebugaran No. 18, Surabaya', phone: '081200001888' } };
@@ -96,10 +133,10 @@
     [0, 1, 2, 3, 5, 6, 7, 9].forEach((i, j) => state.checkins.push({ id: 'check-seed-' + j, memberId: state.members[i].id, name: state.members[i].name, date: today + 'T' + String(1 + Math.floor(j / 2)).padStart(2, '0') + ':' + (j % 2 ? '30' : '00') + ':00.000Z', day: today }));
     state.ptSessions = [{ id: 'pt-seed-1', memberId: 'mem-002', trainerId: 'staff-adit', date: today, time: '16:00', status: 'booked', notes: 'Strength · lower body', createdAt: addDays(today, -1) + 'T03:00:00.000Z' }, { id: 'pt-seed-2', memberId: 'mem-004', trainerId: 'staff-citra', date: today, time: '17:00', status: 'booked', notes: 'Mobility & core', createdAt: addDays(today, -1) + 'T04:00:00.000Z' }, { id: 'pt-seed-3', memberId: 'mem-006', trainerId: 'staff-rizky', date: addDays(today, 1), time: '09:00', status: 'booked', notes: 'Program pemula', createdAt: now }];
     state.audit.push({ id: 'audit-seed', date: now, action: 'demo.created', description: 'Data demo fiktif dibuat. Saldo awal stok dan kredit PT telah dimasukkan.' });
-    return state;
+    normalizeMembers(state); return state;
   }
 
-  function validateState(state) {
+  function validateState(state, asOf = dayAt(new Date())) {
     if (!state || typeof state !== 'object' || Array.isArray(state) || state.version !== 1) fail('Format backup atau versi tidak didukung.');
     if (!state.settings || typeof state.settings !== 'object') fail('Pengaturan backup tidak lengkap.');
     required(state.settings.gymName, 'Nama gym'); required(state.settings.branch, 'Cabang');
@@ -138,8 +175,15 @@
       ['price', 'cost', 'stock', 'minStock'].forEach(k => finite(p[k], k, 0, true));
     });
     const skus = state.products.map(p => p.sku).filter(Boolean); if (new Set(skus).size !== skus.length) fail('SKU produk duplikat.');
+    const qrTokens = new Set();
     state.members.forEach(m => {
-      required(m.name, 'Nama member'); required(m.phone, 'Telepon member'); textFields(m, ['email', 'notes']); dateCheck(m.joinedAt); validateBenefit(m);
+      required(m.name, 'Nama member'); required(m.phone, 'Telepon member'); textFields(m, ['email', 'notes', 'address']); dateCheck(m.joinedAt); validateBenefit(m);
+      if (m.dateOfBirth !== null) { dateCheck(m.dateOfBirth, 'Tanggal lahir'); if (m.dateOfBirth > asOf) fail('Tanggal lahir tidak boleh di masa depan.'); }
+      if (!['', 'male', 'female', 'unspecified'].includes(m.gender)) fail('Jenis kelamin tidak valid.');
+      validatePhoto(m.photoDataUrl); finite(m.accessRevision, 'Revisi masa aktif', 0, true);
+      if (typeof m.qrToken !== 'string' || !/^[a-f0-9]{32}$/.test(m.qrToken)) fail('Kode QR member tidak valid.');
+      if (qrTokens.has(m.qrToken)) fail('Kode QR member duplikat.'); qrTokens.add(m.qrToken);
+      if (has(m, 'customerType') && m.customerType !== customerType(state, m)) fail('Jenis pelanggan tidak sesuai paket akses.');
     });
     state.suppliers.forEach(s => { required(s.name, 'Nama pemasok'); textFields(s, ['phone']); });
     state.staff.forEach(s => { required(s.name, 'Nama staf'); if (!['owner', 'cashier', 'trainer', 'manager'].includes(s.role)) fail('Peran staf tidak valid.'); textFields(s, ['phone']); bool(s.active); });
@@ -168,6 +212,7 @@
       if (t.method === 'cash' && (t.cashReceived < t.total || t.change !== t.cashReceived - t.total) || t.method !== 'cash' && (t.cashReceived !== 0 || t.change !== 0)) fail('Perhitungan pembayaran tidak sesuai.');
       if (t.idempotencyKey != null) { required(t.idempotencyKey, 'Kunci transaksi', 200); if (idem.has(t.idempotencyKey)) fail('Kunci transaksi duplikat.'); idem.add(t.idempotencyKey); }
       if (!!t._before !== !!t._after) fail('Metadata pembatalan tidak lengkap.');
+      if (has(t, '_accessRevision')) finite(t._accessRevision, 'Revisi transaksi', 0, true);
       [t._before, t._after].filter(Boolean).forEach(validateBenefit);
       if (t._before && (!t.memberId || !t.items.some(i => i.type === 'package'))) fail('Metadata benefit tidak sesuai transaksi.');
       if (t.status === 'void') { required(t.voidReason, 'Alasan pembatalan', 1000); isoCheck(t.voidedAt); }
@@ -209,8 +254,10 @@
     let current;
     try {
       const raw = storage ? storage.getItem(KEY) : null;
-      current = raw ? validateState(JSON.parse(raw)) : seed(today(), now());
-      if (!raw && storage) storage.setItem(KEY, JSON.stringify(current));
+      const loaded = raw ? JSON.parse(raw) : seed(today(), now());
+      const migrated = normalizeMembers(loaded);
+      current = validateState(loaded, today());
+      if ((!raw || migrated) && storage) storage.setItem(KEY, JSON.stringify(current));
       if (!storage && typeof window !== 'undefined') storageError = 'Penyimpanan browser tidak tersedia. Izinkan localStorage agar data dapat disimpan.';
     } catch (_) {
       current = seed(today(), now());
@@ -220,7 +267,7 @@
     const audit = (s, action, description) => { s.audit.push({ id: id('audit'), date: now(), action, description }); };
     const commit = (draft, allowRecovery = false) => {
       if (storageError && !allowRecovery) fail(storageError);
-      validateState(draft);
+      validateState(draft, today());
       try { if (storage) storage.setItem(KEY, JSON.stringify(draft)); else if (typeof window !== 'undefined') fail('Penyimpanan browser tidak tersedia.'); }
       catch (_) { fail('Data gagal disimpan. Penyimpanan browser mungkin penuh atau diblokir. Transaksi belum dicatat.'); }
       current = draft; storageError = null;
@@ -245,15 +292,47 @@
     const api = {
       get state() { return current; }, get storageError() { return storageError; },
       today, addDays, status, daysLeft, money,
+      getCustomerType(member) { return customerType(current, member); },
+      memberQrPayload(memberId) { return QR_PREFIX + find(current, 'members', memberId).qrToken; },
+      resolveMemberCode(input) {
+        if (typeof input !== 'string' || input.length > 128) fail('Kode member tidak valid atau terlalu panjang.');
+        const code = input.trim();
+        if (!code || /[\s\x00-\x1f]/.test(code) || /^(?:[a-z][a-z0-9+.-]*:\/\/|javascript:|data:|\/\/)/i.test(code)) fail('Kode member tidak valid. Pindai kartu member FORMA.');
+        let member;
+        if (code.startsWith(QR_PREFIX)) {
+          const token = code.slice(QR_PREFIX.length);
+          if (!/^[a-f0-9]{32}$/.test(token)) fail('Format kode QR member tidak valid.');
+          member = current.members.find(m => m.qrToken === token);
+        } else if (code.includes(':')) fail('Format kode QR member tidak valid.');
+        else member = current.members.find(m => m.id === code || m.qrToken === code);
+        return member || fail('Kode member tidak ditemukan di perangkat ini. Periksa kartu atau ID member.');
+      },
+      checkInCode(input) { return api.checkIn(api.resolveMemberCode(input).id); },
       saveMember(input) {
         return mutate(s => {
           const name = required(clean(input.name), 'Nama member'); const phone = required(clean(input.phone), 'Telepon member', 25);
           if (!/^\+?[0-9 ()-]{8,25}$/.test(phone)) fail('Nomor telepon minimal 8 digit, gunakan angka.');
           const normalized = phone.replace(/\D/g, '').replace(/^62/, '0');
           if (s.members.some(m => m.id !== input.id && m.phone.replace(/\D/g, '').replace(/^62/, '0') === normalized)) fail('Nomor telepon sudah digunakan member lain.');
-          const email = clean(input.email); if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail('Format email tidak valid.');
-          let member = input.id ? find(s, 'members', input.id) : { id: id('mem'), joinedAt: today(), packageId: null, startDate: null, endDate: null, frozenUntil: null, freezeStarted: null, freezeDays: 0, ptCredits: 0 };
-          Object.assign(member, { name, phone, email, notes: clean(input.notes).slice(0, 10000) });
+          let member = input.id ? find(s, 'members', input.id) : { id: id('mem'), joinedAt: today(), packageId: null, startDate: null, endDate: null, frozenUntil: null, freezeStarted: null, freezeDays: 0, ptCredits: 0, email: '', notes: '', ...profileDefaults(), qrToken: newQrToken() };
+          const email = has(input, 'email') ? clean(input.email) : member.email; if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail('Format email tidak valid.');
+          const previous = { packageId: member.packageId, startDate: member.startDate, endDate: member.endDate };
+          const access = { ...previous };
+          ['packageId', 'startDate', 'endDate'].forEach(key => { if (has(input, key)) access[key] = input[key]; });
+          const accessChanged = Object.keys(access).some(key => access[key] !== previous[key]);
+          if (accessChanged && status(member) === 'frozen') fail('Akhiri freeze dahulu sebelum mengubah paket atau tanggal masa aktif.');
+          if (accessChanged && input.id) required(clean(input.membershipReason), 'Alasan perubahan masa aktif', 1000);
+          Object.assign(member, access, { name, phone, email });
+          if (has(input, 'notes')) member.notes = clean(input.notes).slice(0, 10000);
+          ['dateOfBirth', 'gender', 'address', 'photoDataUrl'].forEach(key => { if (has(input, key)) member[key] = input[key]; });
+          if (has(input, 'customerType') && input.customerType !== customerType(s, member)) fail('Jenis pelanggan tidak sesuai paket akses.');
+          // A stored legacy type is derived rather than allowed to drift during sale/void.
+          delete member.customerType;
+          if (accessChanged) {
+            member.accessRevision++;
+            member.frozenUntil = null; member.freezeStarted = null; member.freezeDays = 0;
+            audit(s, 'member.access.updated', member.id + ' · ' + JSON.stringify(previous) + ' → ' + JSON.stringify(access) + ' · ' + (input.id ? clean(input.membershipReason) : 'Pendaftaran / masa aktif awal'));
+          }
           if (!input.id) s.members.push(member); audit(s, input.id ? 'member.updated' : 'member.created', name); return member;
         });
       },
@@ -290,7 +369,7 @@
           if (type === 'staff') { obj.active = obj.active !== false; if (existing && existing.role === 'trainer' && obj.role !== 'trainer' && s.ptSessions.some(p => p.trainerId === obj.id)) fail('Trainer yang memiliki riwayat sesi tidak dapat diganti perannya.'); }
           if (type === 'announcements') { obj.title = required(clean(obj.title), 'Judul'); obj.body = required(clean(obj.body), 'Pengumuman', 10000); }
           if (existing) Object.assign(existing, obj); else s[type].push(obj);
-          validateState(s); audit(s, type + '.saved', obj.name || obj.title); return existing || obj;
+          validateState(s, today()); audit(s, type + '.saved', obj.name || obj.title); return existing || obj;
         });
       },
       checkout(input) {
@@ -339,10 +418,11 @@
               }
             }
           });
+          if (member) delete member.customerType;
           const invoicePrefix = 'FM-' + today().replace(/-/g, '') + '-';
           let invoiceSerial = s.transactions.filter(t => t.day === today()).length + 1;
           while (s.transactions.some(t => t.number === invoicePrefix + String(invoiceSerial).padStart(4, '0'))) invoiceSerial++;
-          const tx = { id: id('tx'), number: invoicePrefix + String(invoiceSerial).padStart(4, '0'), date: now(), day: today(), memberId: member ? member.id : null, memberName: member ? member.name : 'Walk-in', items, subtotal, discount, total, method: input.method, cashReceived, change: input.method === 'cash' ? cashReceived - total : 0, status: 'paid', shiftId: shift.id, notes: clean(input.notes), ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}), ...(before ? { _before: before, _after: benefits(member) } : {}) };
+          const tx = { id: id('tx'), number: invoicePrefix + String(invoiceSerial).padStart(4, '0'), date: now(), day: today(), memberId: member ? member.id : null, memberName: member ? member.name : 'Walk-in', items, subtotal, discount, total, method: input.method, cashReceived, change: input.method === 'cash' ? cashReceived - total : 0, status: 'paid', shiftId: shift.id, notes: clean(input.notes), ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}), ...(before ? { _before: before, _after: benefits(member), _accessRevision: member.accessRevision } : {}) };
           s.transactions.push(tx); audit(s, 'sale.created', tx.number + ' · ' + money(total)); return tx;
         });
       },
@@ -418,12 +498,14 @@
           if (tx.items.some(i => i.type === 'package')) {
             if (!tx._before || !tx._after) fail('Transaksi historis demo tidak dapat dibatalkan.');
             const m = find(s, 'members', tx.memberId);
+            if (m.accessRevision !== (tx._accessRevision || 0)) fail('Masa aktif member sudah diubah manual setelah transaksi. Pembatalan otomatis tidak aman.');
             if (JSON.stringify(benefits(m)) !== JSON.stringify(tx._after)) fail('Benefit member sudah berubah atau digunakan. Pembatalan otomatis tidak aman.');
             const membershipChanged = tx.items.some(i => i.type === 'package' && i.kind !== 'pt');
             if (membershipChanged && s.checkins.some(c => c.memberId === m.id && c.date >= tx.date)) fail('Membership sudah digunakan untuk check-in. Transaksi tidak dapat dibatalkan.');
             if (s.ptSessions.some(p => p.memberId === m.id && p.status !== 'cancelled' && p.createdAt >= tx.date)) fail('Kredit member sudah terkait sesi PT. Batalkan booking dahulu.');
             if (s.ptSessions.filter(p => p.memberId === m.id && p.status === 'booked').length > tx._before.ptCredits) fail('Saldo sebelum transaksi tidak cukup untuk reservasi PT yang ada.');
             Object.assign(m, tx._before);
+            delete m.customerType;
           }
           if (tx.method === 'cash' && summary(s).expectedCash < tx.total) fail('Saldo kas tidak cukup untuk mengembalikan pembayaran tunai.');
           tx.items.filter(i => i.type === 'product').forEach(i => { find(s, 'products', i.id).stock += i.qty; });
@@ -450,7 +532,7 @@
       importBackup(text) {
         if (typeof text !== 'string' || text.length > 20000000) fail('File backup tidak valid atau terlalu besar.');
         let draft; try { draft = JSON.parse(text); } catch (_) { fail('File backup bukan JSON yang valid.'); }
-        validateState(draft); audit(draft, 'backup.imported', 'Backup valid diimpor.'); commit(draft, true); return current;
+        normalizeMembers(draft); validateState(draft, today()); audit(draft, 'backup.imported', 'Backup valid diimpor.'); commit(draft, true); return current;
       },
       resetDemo() { const draft = seed(today(), now()); commit(draft, true); return current; }
     };
