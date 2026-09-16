@@ -8,7 +8,7 @@ Demo ini dibuat untuk meninjau alur operasional gym: membership, kasir, kunjunga
 
 1. Buka demo, lihat Dashboard, lalu bandingkan pendapatan Hari ini dan Bulan ini.
 2. Buka Member, tambah member fiktif dengan nomor WhatsApp contoh yang berbeda. Isi jenis pelanggan, foto opsional, paket, tanggal mulai, dan tanggal expired bila sudah memiliki akses. Pilih Non-member bila belum membeli akses.
-3. Untuk pembayaran baru, buka Kasir / POS, pilih member, tambahkan paket membership, lalu catat pembayaran percobaan. Periksa masa aktif dan struk. Tanggal yang diisi lewat form member tidak menambah pendapatan.
+3. Di daftar Member, gunakan **Edit profil & foto** untuk mengubah data personal, mengganti, atau menghapus foto. **Tambah masa aktif** menyediakan perpanjangan berbayar melalui kasir dan penyesuaian tanggal tanpa pembayaran (bonus/koreksi, alasan wajib). Penyesuaian tidak menambah pendapatan. Bila ada keranjang belum selesai, pilih melanjutkan transaksi tersebut atau kosongkan secara sengaja untuk transaksi baru.
 4. Buka profil member → Kartu member → Unduh kartu PNG. Di Check-in, pilih gambar kartu tadi atau salin kode untuk mencoba check-in. Kamera dan scanner USB juga tersedia; member expired, dibekukan, dan check-in berulang pada hari yang sama ditolak. QRIS/transfer tetap pencatatan manual; jangan melakukan pembayaran sungguhan.
 5. Coba Personal Trainer, Kas & Pengeluaran, serta Laporan. Catat halaman, langkah, dan hasil yang ingin diperbaiki. Pengaturan menyediakan ekspor backup dan reset data demo dengan konfirmasi.
 
@@ -34,6 +34,12 @@ Data tersimpan di localStorage **satu browser, satu perangkat, satu tab yang men
 Tunai, QRIS, dan transfer hanya pencatatan manual. Tidak ada pemrosesan pembayaran, QR pembayaran, verifikasi bank, penagihan otomatis, pengiriman WhatsApp, atau kontrol gate. Daftar staf belum memberikan pembatasan akses. Cetak menggunakan dialog browser; printer termal belum diintegrasikan. QR member adalah identitas untuk pencatatan kunjungan oleh resepsionis, bukan QR pembayaran, login, atau kunci gate.
 
 Pembatalan hanya seluruh transaksi pada shift berjalan jika benefit member belum digunakan atau berubah. Tidak ada refund parsial, pengembalian dana ke bank, atau pembatalan transaksi historis contoh. Arus kas bersih di laporan bukan laba akuntansi.
+
+## Edit member dan tambah masa aktif
+
+Nama/foto di daftar member membuka profil dan QR. Tombol **Edit profil & foto** serta **Tambah masa aktif** terlihat langsung pada tiap member, termasuk di ponsel. Data tetap tersimpan setelah refresh. Mengedit profil atau masa aktif tidak mengganti kode QR member.
+
+Untuk perpanjangan berbayar, pilih **Tambah masa aktif → Lanjut ke kasir**, lalu pilih paket dan catat pembayaran. Untuk bonus/koreksi, isi tanggal expired baru dan alasan, lalu pilih **Simpan penyesuaian**. Tanggal harus lebih jauh dari expired lama dan tidak sebelum hari ini. Tanggal mulai dan kredit PT tetap tersimpan. Member yang dibekukan perlu diaktifkan kembali; member tanpa akses awal perlu membeli paket atau mengisi masa aktif awal di profil.
 
 ## Kartu member dan foto
 

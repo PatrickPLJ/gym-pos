@@ -33,7 +33,11 @@ Bucket H−7/H−3/H−1 pada foto tidak ditiru sebagai angka statis. Versi revi
 
 **Tanggal awal dan koreksi akses:** pilihan paket mengisi durasi default; contoh 30 hari dimulai hari ini dan berakhir pada hari ke-30 secara inklusif. Tanggal expired bisa disesuaikan dengan catatan sebelumnya. Mengubah paket/tanggal member lama membutuhkan alasan audit. Member frozen harus diaktifkan kembali sebelum mengubah akses, tetapi profil/foto tetap boleh diedit. Non-member tidak mendapat akses gym.
 
-**Perpanjangan:** paket 30/90/365 hari menggunakan jumlah hari, bukan bulan kalender. Jika masih aktif, durasi ditambahkan setelah tanggal akhir lama. Jika sudah habis, paket mulai hari ini. Tanggal berakhir inklusif: hari terakhir masih boleh check-in. Contoh paket 30 hari mulai 16 September berakhir 15 Oktober.
+**Edit pelanggan:** pada daftar Member, ketuk nama/foto untuk membuka profil dan QR, atau langsung pilih Edit profil & foto. Nama, kontak, tanggal lahir, jenis kelamin, alamat, catatan, dan foto dapat diperbarui. Foto dapat diganti atau dihapus. Tindakan tersedia langsung di kartu member pada ponsel.
+
+**Tambah masa aktif tanpa pembayaran:** daftar atau profil → Tambah masa aktif → isi expired baru dan alasan bonus/koreksi → tinjau tanggal lama → baru → Simpan penyesuaian. Expired wajib lebih jauh dari tanggal sebelumnya dan tidak sebelum hari ini/tanggal mulai. Tanggal mulai, profil, QR, dan kredit PT dipertahankan; pendapatan tidak berubah. Member frozen perlu diaktifkan kembali. Member tanpa periode akses lengkap perlu membeli paket melalui kasir atau mencatat masa aktif awal di profil.
+
+**Perpanjangan berbayar:** Tambah masa aktif → Lanjut ke kasir → pilih paket → catat pembayaran. Jika ada keranjang atau diskon yang belum selesai, aplikasi meminta pilihan untuk melanjutkan transaksi saat ini, atau sengaja mengosongkannya lalu mulai transaksi baru bagi member yang dipilih. Berlaku juga ketika mendaftarkan member baru dari kasir agar keranjang tidak berpindah pelanggan diam-diam. Paket 30/90/365 hari menggunakan jumlah hari, bukan bulan kalender. Jika masih aktif, durasi ditambahkan setelah tanggal akhir lama. Jika sudah habis, paket mulai hari ini. Tanggal berakhir inklusif: hari terakhir masih boleh check-in. Contoh paket 30 hari mulai 16 September berakhir 15 Oktober.
 
 **Freeze:** member aktif dibekukan sejumlah hari; akses gym berhenti selama freeze. Masa berlaku diperpanjang sekali. Jika dibuka lebih awal, perpanjangan yang belum terpakai dikurangi. Daily pass tidak dapat dibekukan.
 
@@ -69,6 +73,10 @@ Bucket H−7/H−3/H−1 pada foto tidak ditiru sebagai angka statis. Versi revi
 13. **Kartu dan QR:** unduh kartu PNG, pilih gambar itu di Check-in, verifikasi member yang dikenali dan kunjungan baru. Scan ulang harus ditolak. Coba kode tidak dikenal, member expired, dan frozen; pastikan alasan jelas tanpa menambah kunjungan.
 14. **Foto dan cetak:** unggah foto fiktif, ganti/hapus, lalu refresh. Coba foto format tidak didukung. Cetak kartu memakai layout kartu, sementara cetak struk tetap memakai layout 80 mm. Simpan PDF dilakukan melalui dialog cetak browser.
 15. **Perangkat resepsionis:** coba kamera perangkat nyata setelah memberi izin, tutup dialog/ESC/pindah halaman/tab dan pastikan kamera berhenti. Uji izin ditolak, gambar tanpa QR, serta scanner USB dengan Enter. Perangkat fisik belum dianggap lolos hanya berdasarkan tes modul.
+
+16. **Edit langsung di ponsel:** pastikan tombol Profil & QR, Edit profil & foto, serta Tambah masa aktif terlihat tanpa menggeser tabel. Edit nama/foto, simpan, refresh, lalu periksa profil dan QR yang tetap sama.
+17. **Bonus masa aktif:** tambah tanggal expired member aktif atau expired dengan alasan. Tanggal mulai/kredit PT dan total pendapatan tidak berubah. Tanggal lebih pendek, masa lalu, dan alasan kosong ditolak. Frozen harus diaktifkan kembali lebih dahulu.
+18. **Keranjang perpanjangan:** isi produk untuk member A dan diskon, lalu pilih perpanjangan member B. Lanjutkan transaksi saat ini harus mempertahankan A/item/diskon. Kosongkan & mulai transaksi baru harus memilih B dengan keranjang dan diskon kosong; pembayaran paket kemudian mengikuti aturan perpanjangan biasa.
 
 ## Yang perlu ditentukan sebelum produksi
 
