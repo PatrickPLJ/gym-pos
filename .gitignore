@@ -1,0 +1,15 @@
+AGENTS.md
+memory/
+.Codex/
+.codex/
+.claude/
+scripts/launch.mjs
+.env*
+node_modules/
+.DS_Store
+*.log
+logs/
+backups/
+exports/
+*backup*.json
+*.csv
