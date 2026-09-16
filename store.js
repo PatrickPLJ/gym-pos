@@ -70,8 +70,14 @@
     return changed;
   }
 
+  function normalizeBrand(state) {
+    if (!state || !state.settings || state.settings.gymName !== 'FORMA') return false;
+    state.settings.gymName = 'Royal Gym';
+    return true;
+  }
+
   function seed(today, now) {
-    const state = { version: 1, settings: { gymName: 'FORMA', branch: 'Surabaya', address: 'Jl. Graha Kebugaran No. 18, Surabaya', phone: '081200001888' } };
+    const state = { version: 1, settings: { gymName: 'Royal Gym', branch: 'Surabaya', address: 'Jl. Graha Kebugaran No. 18, Surabaya', phone: '081200001888' } };
     COLLECTIONS.forEach(type => { state[type] = []; });
     state.packages = [
       { id: 'pkg-month', name: 'All Access · 30 Hari', kind: 'membership', price: 350000, days: 30, sessions: 0, description: 'Akses gym setiap hari, termasuk loker.', active: true },
@@ -86,7 +92,7 @@
       ['prod-isotonic', 'Isotonik Lemon', 'Minuman', 15000, 9500, 8, 10, 'FM002'],
       ['prod-protein', 'Protein Shake Chocolate', 'Suplemen', 35000, 19000, 24, 8, 'FS001'],
       ['prod-bar', 'Protein Bar Almond', 'Snack', 28000, 17000, 6, 8, 'FS002'],
-      ['prod-towel', 'Handuk FORMA', 'Merchandise', 65000, 35000, 15, 5, 'FA001'],
+      ['prod-towel', 'Handuk Royal Gym', 'Merchandise', 65000, 35000, 15, 5, 'FA001'],
       ['prod-shaker', 'Shaker Bottle 700 ml', 'Merchandise', 85000, 45000, 12, 4, 'FA002'],
       ['prod-coffee', 'Cold Brew Original', 'Minuman', 25000, 12000, 18, 6, 'FM003'],
       ['prod-glove', 'Training Gloves', 'Aksesori', 125000, 75000, 7, 3, 'FA003']
@@ -99,7 +105,7 @@
       { id: 'staff-rizky', name: 'Rizky Saputra', role: 'trainer', phone: '081200001005', active: true }
     ];
     state.suppliers = [{ id: 'sup-hydra', name: 'Hydra Distribusi', phone: '0317000001' }, { id: 'sup-fit', name: 'Fit Nutrition Surabaya', phone: '0317000002' }, { id: 'sup-active', name: 'Active Apparel', phone: '0317000003' }];
-    state.announcements = [{ id: 'ann-1', title: 'Selamat datang di FORMA', body: 'Versi demo operasional. Seluruh member, transaksi, dan nomor kontak adalah data fiktif.' }, { id: 'ann-2', title: 'Latihan bareng, makin konsisten', body: 'Paket 90 hari tersedia. Tanyakan rekomendasi program kepada trainer di resepsionis.' }];
+    state.announcements = [{ id: 'ann-1', title: 'Selamat datang di Royal Gym', body: 'Versi demo operasional. Seluruh member, transaksi, dan nomor kontak adalah data fiktif.' }, { id: 'ann-2', title: 'Latihan bareng, makin konsisten', body: 'Paket 90 hari tersedia. Tanyakan rekomendasi program kepada trainer di resepsionis.' }];
     const names = ['Andi Pratama', 'Dewi Lestari', 'Bima Santoso', 'Nadia Putri', 'Kevin Wijaya', 'Siska Amelia', 'Fajar Ramadhan', 'Ayu Permata', 'Rizal Hakim', 'Clara Tan', 'Dimas Saputra', 'Intan Maharani', 'Yusuf Hidayat', 'Tania Kusuma', 'Raka Aditya', 'Maya Anggraini', 'Bagas Wicaksono', 'Felicia Hartono', 'Reza Mahendra', 'Nabila Azzahra', 'Gilang Setiawan', 'Vina Oktavia'];
     const offsets = [21, 6, 2, 0, -1, 14, 25, 1, -3, 9, 4, 17, -7, 30, 12, 3, -16, 26, 5, -30, null, null];
     names.forEach((name, i) => {
@@ -255,9 +261,10 @@
     try {
       const raw = storage ? storage.getItem(KEY) : null;
       const loaded = raw ? JSON.parse(raw) : seed(today(), now());
-      const migrated = normalizeMembers(loaded);
+      const membersMigrated = normalizeMembers(loaded);
+      const brandMigrated = normalizeBrand(loaded);
       current = validateState(loaded, today());
-      if ((!raw || migrated) && storage) storage.setItem(KEY, JSON.stringify(current));
+      if ((!raw || membersMigrated || brandMigrated) && storage) storage.setItem(KEY, JSON.stringify(current));
       if (!storage && typeof window !== 'undefined') storageError = 'Penyimpanan browser tidak tersedia. Izinkan localStorage agar data dapat disimpan.';
     } catch (_) {
       current = seed(today(), now());
@@ -297,7 +304,7 @@
       resolveMemberCode(input) {
         if (typeof input !== 'string' || input.length > 128) fail('Kode member tidak valid atau terlalu panjang.');
         const code = input.trim();
-        if (!code || /[\s\x00-\x1f]/.test(code) || /^(?:[a-z][a-z0-9+.-]*:\/\/|javascript:|data:|\/\/)/i.test(code)) fail('Kode member tidak valid. Pindai kartu member FORMA.');
+        if (!code || /[\s\x00-\x1f]/.test(code) || /^(?:[a-z][a-z0-9+.-]*:\/\/|javascript:|data:|\/\/)/i.test(code)) fail('Kode member tidak valid. Pindai kartu member gym.');
         let member;
         if (code.startsWith(QR_PREFIX)) {
           const token = code.slice(QR_PREFIX.length);
@@ -532,7 +539,7 @@
       importBackup(text) {
         if (typeof text !== 'string' || text.length > 20000000) fail('File backup tidak valid atau terlalu besar.');
         let draft; try { draft = JSON.parse(text); } catch (_) { fail('File backup bukan JSON yang valid.'); }
-        normalizeMembers(draft); validateState(draft, today()); audit(draft, 'backup.imported', 'Backup valid diimpor.'); commit(draft, true); return current;
+        normalizeMembers(draft); normalizeBrand(draft); validateState(draft, today()); audit(draft, 'backup.imported', 'Backup valid diimpor.'); commit(draft, true); return current;
       },
       resetDemo() { const draft = seed(today(), now()); commit(draft, true); return current; }
     };

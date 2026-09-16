@@ -185,6 +185,62 @@ test('legacy stored data migrates once without changing history, revenue, benefi
   assert.equal(storage.getItem('forma.gym.pos.v1'), persisted);
 });
 
+test('Royal Gym replaces only the exact default brand, persists once, and retains all data and QR tokens', () => {
+  const { store, storage, entries } = fixture();
+  const oldState = JSON.parse(store.exportBackup());
+  oldState.settings = { ...oldState.settings, gymName: 'FORMA', branch: 'Cabang pilihan', address: 'Alamat gym pilihan', phone: '081233334444' };
+  oldState.products.find(p => p.id === 'prod-towel').name = 'Handuk FORMA';
+  oldState.announcements[0].title = 'Selamat datang di FORMA';
+  storage.setItem('forma.gym.pos.v1', JSON.stringify(oldState));
+  const write = storage.setItem; let writes = 0;
+  storage.setItem = (key, value) => { assert.equal(key, 'forma.gym.pos.v1'); writes++; write(key, value); };
+  const migrated = createStore({ storage, now: () => new Date('2026-09-16T05:00:00.000Z') });
+  const expected = JSON.parse(JSON.stringify(oldState)); expected.settings.gymName = 'Royal Gym';
+  assert.equal(migrated.storageError, null); assert.deepEqual(migrated.state, expected); assert.equal(writes, 1);
+  assert.deepEqual([...entries.keys()], ['forma.gym.pos.v1']);
+  oldState.members.forEach(m => assert.equal(migrated.memberQrPayload(m.id), 'FORMA-MEMBER:1:' + m.qrToken));
+  const reloaded = createStore({ storage, now: () => new Date('2026-09-16T05:00:00.000Z') });
+  assert.deepEqual(reloaded.state, expected); assert.equal(writes, 1);
+});
+
+test('brand migration and legacy member normalization both run without short-circuiting', () => {
+  const { store, storage } = fixture(); const originalToken = store.state.members[0].qrToken;
+  const legacy = stripNewFields(JSON.parse(store.exportBackup())); legacy.settings.gymName = 'FORMA'; legacy.members[0].qrToken = originalToken;
+  storage.setItem('forma.gym.pos.v1', JSON.stringify(legacy));
+  const migrated = createStore({ storage, now: () => new Date('2026-09-16T05:00:00.000Z') });
+  assert.equal(migrated.storageError, null); assert.equal(migrated.state.settings.gymName, 'Royal Gym');
+  assert.equal(migrated.state.members[0].qrToken, originalToken);
+  migrated.state.members.forEach(m => { assert.match(m.qrToken, /^[a-f0-9]{32}$/); assert.equal(m.accessRevision, 0); assert.equal(m.photoDataUrl, null); });
+  const restored = stripNewFields(JSON.parse(migrated.exportBackup())); restored.settings.gymName = 'FORMA'; restored.members[0].qrToken = originalToken;
+  assert.deepEqual(restored, legacy);
+  const oldBackup = JSON.stringify(legacy); migrated.importBackup(oldBackup);
+  assert.equal(migrated.state.settings.gymName, 'Royal Gym'); assert.equal(migrated.state.members[0].qrToken, originalToken);
+  assert.equal(new Set(migrated.state.members.map(m => m.qrToken)).size, legacy.members.length);
+});
+
+test('brand migration preserves custom gym names on load and import; former default backups retain history and tokens', () => {
+  const { store, storage } = fixture(); const seedState = JSON.parse(store.exportBackup());
+  for (const gymName of ['Gym Mandiri', 'FORMA Studio', 'forma', ' FORMA ', 'Royal Gym']) {
+    const backup = JSON.parse(JSON.stringify(seedState)); backup.settings.gymName = gymName;
+    storage.setItem('forma.gym.pos.v1', JSON.stringify(backup));
+    const loaded = createStore({ storage, now: () => new Date('2026-09-16T05:00:00.000Z') });
+    assert.deepEqual(loaded.state, backup);
+    loaded.importBackup(JSON.stringify(backup));
+    const imported = JSON.parse(loaded.exportBackup()); imported.audit.pop(); assert.deepEqual(imported, backup);
+  }
+  const oldBackup = JSON.parse(JSON.stringify(seedState)); oldBackup.settings.gymName = 'FORMA';
+  store.importBackup(JSON.stringify(oldBackup));
+  const imported = JSON.parse(store.exportBackup()); imported.audit.pop(); oldBackup.settings.gymName = 'Royal Gym';
+  assert.deepEqual(imported, oldBackup);
+});
+
+test('Royal Gym normalization does not allow an invalid backup to overwrite stored data', () => {
+  const { store, storage } = fixture(); const before = store.exportBackup(), disk = storage.getItem('forma.gym.pos.v1');
+  const invalid = JSON.parse(before); invalid.settings.gymName = 'FORMA'; invalid.members[0].qrToken = null;
+  assert.throws(() => store.importBackup(JSON.stringify(invalid)));
+  assert.equal(store.exportBackup(), before); assert.equal(storage.getItem('forma.gym.pos.v1'), disk);
+});
+
 test('manual initial access and profile store no sale, preserve optional fields, and derive customer type', () => {
   const { store } = fixture(); const revenue = store.metrics(); const transactions = store.state.transactions.length;
   const m = manualMember(store, { dateOfBirth: '1994-06-12', gender: 'female', address: 'Jalan Contoh Fiktif 8', notes: 'Profil demo', photoDataUrl: pngPhoto, customerType: 'monthly' });

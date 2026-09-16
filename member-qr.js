@@ -7,6 +7,7 @@
   const QUIET = 4;
   const MAX_FILE_BYTES = 10 * 1024 * 1024;
   const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+  const BRAND_LOGO = './assets/royal-gym-logo.jpg?v=20260916-royal-gym';
   const text = value => String(value == null ? '' : value).replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, 500).trim();
 
   function matrix(payload) {
@@ -168,10 +169,17 @@
     };
     ctx.fillStyle = '#f5f5ef'; ctx.fillRect(0, 0, 1440, 900);
     ctx.fillStyle = '#173e35'; ctx.fillRect(0, 0, 1440, 206);
-    label(settings.gymName || 'GYM', 66, 90, 960, 50, 700, '#fff');
-    label(settings.branch || '', 68, 140, 960, 25, 400, '#d2e0d8');
+    // The public brand asset is fixed and local. Never load a URL supplied in a profile or backup.
+    const logo = await loadImage(BRAND_LOGO);
+    if (!logo.naturalWidth || !logo.naturalHeight) throw new Error('Logo gym gagal dibaca. Muat ulang halaman lalu coba unduh kembali.');
+    ctx.fillStyle = '#fff'; ctx.fillRect(66, 27, 152, 152);
+    const logoScale = Math.min(146 / logo.naturalWidth, 146 / logo.naturalHeight);
+    const logoWidth = logo.naturalWidth * logoScale, logoHeight = logo.naturalHeight * logoScale;
+    ctx.drawImage(logo, 69 + (146 - logoWidth) / 2, 30 + (146 - logoHeight) / 2, logoWidth, logoHeight);
+    label(settings.gymName || 'Royal Gym', 244, 90, 790, 50, 700, '#fff');
+    label(settings.branch || '', 246, 140, 788, 25, 400, '#d2e0d8');
     label('KARTU MEMBER', 1080, 95, 295, 23, 600, '#d7edb2');
-    ctx.fillStyle = '#d7edb2'; ctx.fillRect(66, 190, 72, 6);
+    ctx.fillStyle = '#d7edb2'; ctx.fillRect(244, 190, 72, 6);
     let nameX = 66, nameWidth = 804;
     if (typeof member.photoDataUrl === 'string' && member.photoDataUrl.length <= 1000000 && /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(member.photoDataUrl)) {
       try {

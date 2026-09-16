@@ -25,7 +25,7 @@ function raster(svg, scale = 8) {
 
 function browser({ media, decoder = jsQR, imagePixels = raster(QR.svg(token)), naturalWidth, naturalHeight, imageFails = false, play } = {}) {
   const timers = new Map(), track = { stopped: 0, stop() { this.stopped++; } };
-  const stream = { getTracks: () => [track] }, revoked = [], drawCalls = [], canvases = [];
+  const stream = { getTracks: () => [track] }, revoked = [], drawCalls = [], canvases = [], imageSources = [];
   let nextTimer = 1;
   const video = { readyState: 2, videoWidth: 640, videoHeight: 480, srcObject: null, pauses: 0, play: play || (() => Promise.resolve()), pause() { this.pauses++; }, setAttribute() {} };
   const root = {
@@ -34,7 +34,7 @@ function browser({ media, decoder = jsQR, imagePixels = raster(QR.svg(token)), n
     setTimeout: fn => { const id = nextTimer++; timers.set(id, fn); return id; },
     clearTimeout: id => timers.delete(id),
     URL: { createObjectURL: () => 'blob:test-local', revokeObjectURL: value => revoked.push(value) },
-    Image: class { constructor() { this.naturalWidth = naturalWidth || imagePixels.width; this.naturalHeight = naturalHeight || imagePixels.height; } set src(_) { queueMicrotask(() => imageFails ? this.onerror() : this.onload()); } },
+    Image: class { constructor() { this.naturalWidth = naturalWidth || imagePixels.width; this.naturalHeight = naturalHeight || imagePixels.height; } set src(value) { this.source = value; imageSources.push(value); queueMicrotask(() => imageFails ? this.onerror() : this.onload()); } },
     document: { createElement(tag) {
       assert.equal(tag, 'canvas');
       const el = { width: 0, height: 0, getContext: () => ({ fillRect() {}, drawImage: (...args) => drawCalls.push(args), getImageData: () => ({ data: imagePixels.data }) }) };
@@ -42,7 +42,7 @@ function browser({ media, decoder = jsQR, imagePixels = raster(QR.svg(token)), n
     } }
   };
   vm.runInNewContext(source, root);
-  return { api: root.MemberQR, root, video, stream, track, timers, revoked, drawCalls, canvases, tick() { const next = timers.entries().next().value; if (next) { timers.delete(next[0]); next[1](); } } };
+  return { api: root.MemberQR, root, video, stream, track, timers, revoked, drawCalls, canvases, imageSources, tick() { const next = timers.entries().next().value; if (next) { timers.delete(next[0]); next[1](); } } };
 }
 
 test('real SVG QR encodes exact member tokens and dense IDs with a four-module quiet zone', () => {
@@ -93,14 +93,20 @@ test('file canvas is capped at 2048 pixels on its longest side', async () => {
   assert.equal(env.drawCalls[0][3], 2048); assert.equal(env.drawCalls[0][4], 1024);
 });
 
-test('member card drawing produces a readable QR and excludes private profile fields and remote photos', async () => {
+test('member card draws the whole local Royal Gym logo, preserves readable QR and rejects remote profile/logo sources', async () => {
   const width = 1440, height = 900, pixels = new Uint8ClampedArray(width * height * 4).fill(255), paintedText = [];
   const env = browser();
   const ctx = {
     fillStyle: '#fff', font: '',
     measureText: value => ({ width: value.length * 21 }),
     fillText: value => paintedText.push(value),
-    drawImage: () => assert.fail('Remote profile photo must never load'),
+    drawImage: (...args) => {
+      assert.equal(args[0].source, './assets/royal-gym-logo.jpg?v=20260916-royal-gym');
+      assert.equal(args.length, 5, 'Whole image must be drawn without source cropping');
+      assert.ok(args[3] >= 100 && args[4] >= 100, 'Brand logo should remain legible');
+      assert.ok(args[2] + args[4] < 206, 'Logo remains inside header and outside QR quiet zone');
+      env.drawCalls.push(args);
+    },
     fillRect(x, y, w, h) {
       const hex = this.fillStyle.slice(1), full = hex.length === 3 ? [...hex].map(char => char + char).join('') : hex;
       const rgb = [0, 2, 4].map(offset => parseInt(full.slice(offset, offset + 2), 16));
@@ -115,10 +121,12 @@ test('member card drawing produces a readable QR and excludes private profile fi
   const blob = await env.api.cardPng({
     payload: token,
     member: { id: 'mem-test', name: '<script>synthetic</script>', startDate: '2026-09-16', endDate: '2026-10-15', phone: 'PRIVATE_PHONE', dateOfBirth: 'PRIVATE_DOB', address: 'PRIVATE_ADDRESS', photoDataUrl: 'https://example.invalid/private.jpg' },
-    settings: { gymName: 'Gym Demo', branch: 'Demo', address: 'Gym business address' }, statusLabel: 'Aktif'
+    settings: { gymName: 'Royal Gym', branch: 'Demo', address: 'Gym business address' }, statusLabel: 'Aktif', logoUrl: 'https://example.invalid/tracking-logo.jpg'
   });
   assert.equal(blob.type, 'image/png');
   assert.equal(jsQR(pixels, width, height).data, token);
+  assert.deepEqual(env.imageSources, ['./assets/royal-gym-logo.jpg?v=20260916-royal-gym']);
+  assert.equal(env.drawCalls.length, 1); assert.ok(paintedText.includes('Royal Gym'));
   assert.ok(paintedText.some(value => value.includes('script')));
   assert.ok(!paintedText.some(value => /PRIVATE_/.test(value)));
   assert.ok(paintedText.includes('16 Sep 2026')); assert.ok(paintedText.includes('15 Okt 2026'));

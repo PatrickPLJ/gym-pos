@@ -1,12 +1,12 @@
-# FORMA — workflow & panduan review
+# Royal Gym — workflow & panduan review
 
-Dokumen ini memetakan enam foto referensi pemilik gym ke versi review yang bisa dicoba. Seluruh angka dan identitas demo fiktif. Nama gym, harga, kebijakan paket, dan aturan operasional final masih menunggu review pemilik gym.
+Dokumen ini memetakan enam foto referensi pemilik gym ke versi review yang bisa dicoba. Seluruh angka dan data member demo fiktif. Nama dan logo Royal Gym mengikuti identitas yang diberikan pemilik; harga, kebijakan paket, dan aturan operasional final masih menunggu review pemilik gym.
 
 ## Yang dipelajari dari POS gym lain
 
-Riset sumber resmi diperiksa 16 September 2026. Bagian “penerapan FORMA” adalah pilihan implementasi proyek ini, bukan klaim bahwa perilakunya sama persis dengan produk sumber.
+Riset sumber resmi diperiksa 16 September 2026. Bagian “penerapan Royal Gym” adalah pilihan implementasi proyek ini, bukan klaim bahwa perilakunya sama persis dengan produk sumber.
 
-| Sumber resmi | Pola yang relevan | Penerapan FORMA |
+| Sumber resmi | Pola yang relevan | Penerapan Royal Gym |
 | --- | --- | --- |
 | [GymMaster: POS & stock control](https://www.gymmaster.com/point-of-sale-and-stock-control/) | Penjualan produk di gym berkaitan dengan stok dan laporan; kasir dapat digunakan di berbagai perangkat. | Satu checkout untuk paket dan produk, stok berkurang setelah pembayaran tercatat, pembelian menambah stok, laporan per periode. |
 | [GymMaster: member denied entry](https://www.gymmaster.com/help/help_member_denied_entry/) | Kelayakan akses bergantung pada membership; resepsionis memerlukan alasan penolakan yang jelas. | Check-in memeriksa masa aktif dan freeze, menolak duplikasi harian, dan memberi alasan. Integrasi pintu tidak dibuat. |
@@ -43,7 +43,7 @@ Bucket H−7/H−3/H−1 pada foto tidak ditiru sebagai angka statis. Versi revi
 
 **Kunjungan:** scan QR kartu, pilih gambar QR, atau masukkan kode/ID member → periksa data member terkini → catat check-in jika akses valid. Kamera hanya aktif setelah tombol dipilih; scanner USB dapat mengisi kolom lalu Enter. Pencarian nama/telepon tetap tersedia. Dicatat satu kunjungan per hari; member expired, belum mulai, non-member, atau frozen ditolak. Angka kunjungan bukan jumlah orang yang saat ini berada di gym; tidak ada check-out/gate.
 
-**Kartu member:** profil → Kartu member → Unduh kartu PNG atau Cetak / Simpan PDF lewat dialog cetak. Kartu menampilkan identitas gym/member, foto opsional, tanggal mulai/expired dan QR. Kode berisi token identitas tanpa detail pribadi; token tetap sama ketika diperpanjang. Resepsionis menggunakan tanggal aktif dari data aplikasi, bukan tulisan tanggal di kartu. Kartu lama perlu diunduh ulang untuk menampilkan tanggal cetak terbaru.
+**Kartu member:** profil → Kartu member → Unduh kartu PNG atau Cetak / Simpan PDF lewat dialog cetak. Kartu menampilkan logo asli Royal Gym, identitas gym/member, foto opsional, tanggal mulai/expired dan QR. Logo yang sama tampil pada workspace dan struk cetak. Kode berisi token identitas tanpa detail pribadi; token tetap sama ketika diperpanjang. Resepsionis menggunakan tanggal aktif dari data aplikasi, bukan tulisan tanggal di kartu. Kartu lama perlu diunduh ulang untuk menampilkan tanggal cetak terbaru.
 
 **Foto:** pengguna memilih/mengambil JPG, PNG, atau WebP → pratinjau → simpan profil. File dikompres menjadi JPEG maksimal sisi 480 piksel; metadata gambar asli tidak dipertahankan. HEIC diminta dikonversi terlebih dahulu. Foto asli dan gambar QR tidak dikirim ke server.
 
@@ -80,7 +80,7 @@ Bucket H−7/H−3/H−1 pada foto tidak ditiru sebagai angka statis. Versi revi
 
 ## Yang perlu ditentukan sebelum produksi
 
-- Nama/cabang, daftar harga asli, paket kalender versus hari, aturan freeze, diskon, refund, pajak, dan komisi trainer.
+- Cabang, daftar harga asli, paket kalender versus hari, aturan freeze, diskon, refund, pajak, dan komisi trainer.
 - Database bersama, login serta izin owner/kasir/trainer, audit server, backup otomatis, pemulihan, dan penanganan dua kasir bersamaan.
 - Migrasi data asli beserta saldo masa aktif, PT, dan stok; validasi terpisah sebelum mengganti sistem yang sedang dipakai.
 - Payment gateway atau QRIS merchant resmi, verifikasi pembayaran, rekonsiliasi settlement, serta prosedur pengembalian dana.

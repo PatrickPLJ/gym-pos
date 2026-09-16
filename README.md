@@ -1,6 +1,8 @@
-# FORMA — POS & operasional gym
+# Royal Gym — POS & operasional gym
 
-**[Buka demo interaktif](https://patrickplj.github.io/gym-pos/)** — langsung coba dari browser, tanpa instalasi atau akun. FORMA adalah nama sementara yang bisa diganti di Pengaturan.
+**[Buka demo interaktif](https://patrickplj.github.io/gym-pos/)** — langsung coba dari browser, tanpa instalasi atau akun. Nama Royal Gym digunakan sebagai identitas awal dan tetap bisa diganti di Pengaturan.
+
+Logo Royal Gym di `assets/royal-gym-logo.jpg` merupakan aset yang diberikan pemilik untuk aplikasi ini. Gambar asli dipakai utuh pada workspace, kartu member, dan struk; tidak ada lisensi penggunaan ulang logo yang diberikan melalui repository ini.
 
 Demo ini dibuat untuk meninjau alur operasional gym: membership, kasir, kunjungan, personal training, stok, dan laporan. Semua data awal adalah contoh fiktif. **Gunakan nama, nomor telepon, dan transaksi fiktif selama mencoba; jangan masukkan data pribadi atau operasional asli.** Ini belum siap untuk operasional produksi.
 
