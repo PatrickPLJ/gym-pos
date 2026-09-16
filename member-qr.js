@@ -163,12 +163,12 @@
     if (root.document.fonts && root.document.fonts.load) {
       await Promise.all([root.document.fonts.load('700 48px "Plus Jakarta Sans"'), root.document.fonts.load('400 26px "Manrope"')]);
     }
-    const label = (value, x, y, width, size = 24, weight = 400, color = '#52655e') => {
+    const label = (value, x, y, width, size = 24, weight = 400, color = '#526070') => {
       ctx.fillStyle = color; ctx.font = weight + ' ' + size + 'px "Plus Jakarta Sans", sans-serif';
       ctx.fillText(fitText(ctx, value, width), x, y);
     };
-    ctx.fillStyle = '#f5f5ef'; ctx.fillRect(0, 0, 1440, 900);
-    ctx.fillStyle = '#173e35'; ctx.fillRect(0, 0, 1440, 206);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 1440, 900);
+    ctx.fillStyle = '#011226'; ctx.fillRect(0, 0, 1440, 206);
     // The public brand asset is fixed and local. Never load a URL supplied in a profile or backup.
     const logo = await loadImage(BRAND_LOGO);
     if (!logo.naturalWidth || !logo.naturalHeight) throw new Error('Logo gym gagal dibaca. Muat ulang halaman lalu coba unduh kembali.');
@@ -177,9 +177,9 @@
     const logoWidth = logo.naturalWidth * logoScale, logoHeight = logo.naturalHeight * logoScale;
     ctx.drawImage(logo, 69 + (146 - logoWidth) / 2, 30 + (146 - logoHeight) / 2, logoWidth, logoHeight);
     label(settings.gymName || 'Royal Gym', 244, 90, 790, 50, 700, '#fff');
-    label(settings.branch || '', 246, 140, 788, 25, 400, '#d2e0d8');
-    label('KARTU MEMBER', 1080, 95, 295, 23, 600, '#d7edb2');
-    ctx.fillStyle = '#d7edb2'; ctx.fillRect(244, 190, 72, 6);
+    label(settings.branch || '', 246, 140, 788, 25, 400, '#b9c3d1');
+    label('KARTU MEMBER', 1080, 95, 295, 23, 600, '#e3c168');
+    ctx.fillStyle = '#e3c168'; ctx.fillRect(244, 190, 72, 6);
     let nameX = 66, nameWidth = 804;
     if (typeof member.photoDataUrl === 'string' && member.photoDataUrl.length <= 1000000 && /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(member.photoDataUrl)) {
       try {
@@ -193,19 +193,19 @@
     const words = text(member.name).split(/\s+/); let first = '', rest = '';
     ctx.font = '700 40px "Plus Jakarta Sans", sans-serif';
     words.forEach(word => { if (!rest && ctx.measureText((first ? first + ' ' : '') + word).width <= nameWidth) first += (first ? ' ' : '') + word; else rest += (rest ? ' ' : '') + word; });
-    label(first || rest || 'Member', nameX, 343, nameWidth, 40, 700, '#173e35');
-    if (first && rest) label(rest, nameX, 394, nameWidth, 40, 700, '#173e35');
+    label(first || rest || 'Member', nameX, 343, nameWidth, 40, 700, '#011226');
+    if (first && rest) label(rest, nameX, 394, nameWidth, 40, 700, '#011226');
     label('ID MEMBER', 66, 477, 800, 19, 600);
-    label(member.id, 66, 522, 804, 28, 600, '#173e35');
-    ctx.fillStyle = '#dce2d8'; ctx.fillRect(66, 553, 804, 1);
+    label(member.id, 66, 522, 804, 28, 600, '#011226');
+    ctx.fillStyle = '#e4e7eb'; ctx.fillRect(66, 553, 804, 1);
     label('BERLAKU MULAI', 66, 603, 380, 19, 600);
     label('BERLAKU SAMPAI', 480, 603, 385, 19, 600);
-    label(dateText(member.startDate), 66, 653, 380, 31, 700, '#173e35');
-    label(dateText(member.endDate), 480, 653, 390, 31, 700, '#173e35');
-    label(statusLabel || 'Cek masa aktif di resepsionis', 66, 738, 805, 23, 600, '#173e35');
+    label(dateText(member.startDate), 66, 653, 380, 31, 700, '#011226');
+    label(dateText(member.endDate), 480, 653, 390, 31, 700, '#011226');
+    label(statusLabel || 'Cek masa aktif di resepsionis', 66, 738, 805, 23, 600, '#011226');
     drawQR(ctx, cells, 936, 278, 420);
-    label('PINDAI UNTUK CHECK-IN', 954, 743, 410, 20, 600, '#173e35');
-    ctx.fillStyle = '#dce2d8'; ctx.fillRect(66, 784, 1308, 1);
+    label('PINDAI UNTUK CHECK-IN', 954, 743, 410, 20, 600, '#011226');
+    ctx.fillStyle = '#e4e7eb'; ctx.fillRect(66, 784, 1308, 1);
     label('Tunjukkan kartu ini saat masuk gym.', 66, 836, 790, 22);
     label(settings.address || settings.branch || '', 66, 875, 1270, 18);
     label('MEMBERSHIP CARD', 1100, 836, 275, 18, 600);
